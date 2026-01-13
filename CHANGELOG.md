@@ -10,6 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### In Development
 - Future features and improvements
 
+## [0.2.0] - 2026-01-13
+
+### Added
+- Environment variable support for GPG passphrase (`MAVEN_GPG_PASSPHRASE`) in `DefaultFileProcessor`
+- Complete release profile example in README with all Maven plugins
+- Advanced configuration examples with all available options
+
+### Changed
+- Updated README to be more generic
+- Simplified GPG configuration examples in README
+- Improved documentation with lifecycle integration examples
+- Enhanced GitHub Actions release workflow with GPG configuration verification
+
+### Fixed
+- GPG signing in CI/CD environments by adding environment variable fallback
+- GitHub Actions release workflow GPG passphrase handling
+
 ## [0.1.1] - 2026-01-13
 
 ### Added
