@@ -59,6 +59,15 @@ public class DefaultFileProcessor implements FileProcessor {
 
     File signatureFile = new File(file.getAbsolutePath() + ".asc");
 
+    // Get passphrase from field or environment variable
+    String effectivePassphrase = gpgPassphrase;
+    if (effectivePassphrase == null || effectivePassphrase.isEmpty()) {
+      effectivePassphrase = System.getenv("MAVEN_GPG_PASSPHRASE");
+      if (effectivePassphrase != null && !effectivePassphrase.isEmpty()) {
+        log.debug("Using GPG passphrase from MAVEN_GPG_PASSPHRASE environment variable");
+      }
+    }
+
     List<String> command = new ArrayList<>();
     command.add(gpgExecutable);
     command.add("--detach-sign");
@@ -66,9 +75,9 @@ public class DefaultFileProcessor implements FileProcessor {
     command.add("--output");
     command.add(signatureFile.getAbsolutePath());
 
-    if (gpgPassphrase != null && !gpgPassphrase.isEmpty()) {
+    if (effectivePassphrase != null && !effectivePassphrase.isEmpty()) {
       command.add("--passphrase");
-      command.add(gpgPassphrase);
+      command.add(effectivePassphrase);
       command.add("--batch");
       command.add("--yes");
     }

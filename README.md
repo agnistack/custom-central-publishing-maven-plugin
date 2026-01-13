@@ -5,9 +5,9 @@ A Maven plugin for publishing custom artifacts (POM-only or full artifacts with 
 ## Overview
 
 This plugin is designed to deploy artifacts that are generated in custom locations (like `target/classes`) to Maven Central. It's particularly useful for:
-- Projects that generate multiple BOM POMs dynamically using tools like sundrio-maven-plugin
-- Projects that need to publish artifacts from custom output directories
-- Combining multiple artifacts into a single Maven Central deployment
+- Projects that generate multiple POM files dynamically in custom directories
+- Projects that need to publish artifacts from non-standard output directories
+- Combining multiple artifacts into a single Maven Central deployment bundle
 
 ## Features
 
@@ -38,7 +38,7 @@ Add the plugin to your project's `pom.xml`:
     <plugin>
       <groupId>io.github.agnistack</groupId>
       <artifactId>custom-central-publishing-maven-plugin</artifactId>
-      <version>0.1.0</version>
+      <version>0.1.1</version>
     </plugin>
   </plugins>
 </build>
@@ -62,22 +62,68 @@ Configure your Maven Central credentials in `~/.m2/settings.xml`:
 </settings>
 ```
 
-### Plugin Configuration Example
+### Basic Plugin Configuration
 
 ```xml
 <plugin>
   <groupId>io.github.agnistack</groupId>
   <artifactId>custom-central-publishing-maven-plugin</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <configuration>
     <bomProjectsDirectory>${project.build.directory}/classes</bomProjectsDirectory>
     <bomProjects>
-      <bomProject>kubernetes-client-bom</bomProject>
-      <bomProject>kubernetes-client-bom-with-deps</bomProject>
+      <bomProject>my-project-bom</bomProject>
+      <bomProject>my-project-bom-with-deps</bomProject>
     </bomProjects>
-    <autoPublish>true</autoPublish>
-    <waitUntil>PUBLISHED</waitUntil>
+    <autoPublish>false</autoPublish>
+    <waitUntil>VALIDATED</waitUntil>
     <skipGpgSign>false</skipGpgSign>
+  </configuration>
+</plugin>
+```
+
+### Advanced Configuration with All Options
+
+```xml
+<plugin>
+  <groupId>io.github.agnistack</groupId>
+  <artifactId>custom-central-publishing-maven-plugin</artifactId>
+  <version>0.1.1</version>
+  <inherited>false</inherited>  <!-- Only run on parent POM -->
+  <executions>
+    <execution>
+      <id>publish-custom-artifacts</id>
+      <phase>deploy</phase>
+      <goals>
+        <goal>publish-custom</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <!-- Deployment Settings -->
+    <deploymentName>my-project-boms</deploymentName>
+    <publishingServerId>central</publishingServerId>
+    <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
+    <autoPublish>false</autoPublish>
+    <waitUntil>VALIDATED</waitUntil>
+    <waitMaxTime>600</waitMaxTime>
+    <waitPollingInterval>10</waitPollingInterval>
+
+    <!-- Artifact Locations -->
+    <bomProjectsDirectory>${project.build.directory}/classes</bomProjectsDirectory>
+    <bomProjects>
+      <bomProject>my-project-bom</bomProject>
+      <bomProject>my-project-bom-with-deps</bomProject>
+    </bomProjects>
+
+    <!-- Optional: Include full artifacts (JAR, sources, javadoc) -->
+    <includeJar>false</includeJar>
+    <includeSources>false</includeSources>
+    <includeJavadoc>false</includeJavadoc>
+
+    <!-- GPG Signing -->
+    <skipGpgSign>false</skipGpgSign>
+    <gpgExecutable>gpg</gpgExecutable>
   </configuration>
 </plugin>
 ```
@@ -86,24 +132,40 @@ Configure your Maven Central credentials in `~/.m2/settings.xml`:
 
 ### Publishing Custom POM Artifacts
 
+#### Command Line Execution
+
 ```bash
-mvn io.github.agnistack:custom-central-publishing-maven-plugin:0.1.0:publish-custom \
-  -DbomProjectsDirectory=/path/to/target/classes \
-  -DbomProjects=kubernetes-client-bom,kubernetes-client-bom-with-deps
+mvn io.github.agnistack:custom-central-publishing-maven-plugin:0.1.1:publish-custom \
+  -DbomProjectsDirectory=${project.build.directory}/classes \
+  -DbomProjects=my-project-bom,my-project-bom-with-deps
 ```
 
-Or add it to your build lifecycle:
+#### Lifecycle Integration
+
+Add to your `pom.xml`:
 
 ```xml
-<executions>
-  <execution>
-    <id>publish-custom-artifacts</id>
-    <phase>deploy</phase>
-    <goals>
-      <goal>publish-custom</goal>
-    </goals>
-  </execution>
-</executions>
+<plugin>
+  <groupId>io.github.agnistack</groupId>
+  <artifactId>custom-central-publishing-maven-plugin</artifactId>
+  <version>0.1.1</version>
+  <inherited>false</inherited>
+  <executions>
+    <execution>
+      <id>publish-custom-artifacts</id>
+      <phase>deploy</phase>
+      <goals>
+        <goal>publish-custom</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <bomProjectsDirectory>${project.build.directory}/classes</bomProjectsDirectory>
+    <bomProjects>
+      <bomProject>my-project-bom</bomProject>
+    </bomProjects>
+  </configuration>
+</plugin>
 ```
 
 Then run:
@@ -161,8 +223,9 @@ The plugin will:
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `bomProjectsDirectory` | Yes | - | Directory containing BOM projects (e.g., `target/classes`) |
-| `bomProjects` | Yes | - | List of BOM project names to deploy |
+| `bomProjectsDirectory` | Yes | - | Directory containing custom artifacts (e.g., `${project.build.directory}/classes`) |
+| `bomProjects` | Yes | - | List of artifact directory names to deploy |
+| `deploymentName` | No | `${project.groupId}:${project.artifactId}:${project.version}` | Human-readable deployment identifier |
 | `includeJar` | No | `false` | Include JAR files in the deployment bundle |
 | `includeSources` | No | `false` | Include sources JAR files in the deployment bundle |
 | `includeJavadoc` | No | `false` | Include javadoc JAR files in the deployment bundle |
@@ -178,23 +241,132 @@ The plugin will:
 | `gpg.passphrase` | No | - | GPG passphrase for signing |
 | `skipGpgSign` | No | `false` | Skip GPG signing (not recommended for production) |
 
-## Example Use Case: Kubernetes Client
+## Complete Release Profile Example
 
-For projects like Kubernetes Client that generate BOM POMs at:
-- `/path/to/kubernetes-client-new/target/classes/kubernetes-client-bom/pom.xml`
-- `/path/to/kubernetes-client-new/target/classes/kubernetes-client-bom-with-deps/pom.xml`
-
-Configuration:
+Configure a release profile in your `pom.xml` to deploy custom artifacts alongside regular modules:
 
 ```xml
-<configuration>
-  <bomProjectsDirectory>/path/to/kubernetes-client-new/target/classes</bomProjectsDirectory>
-  <bomProjects>
-    <bomProject>project-on-the-fly-bom</bomProject>
-    <bomProject>project-bom-with-deps</bomProject>
-  </bomProjects>
-</configuration>
+<distributionManagement>
+  <snapshotRepository>
+    <id>central</id>
+    <name>Central Portal</name>
+    <url>https://central.sonatype.com/</url>
+  </snapshotRepository>
+</distributionManagement>
+
+<profiles>
+  <profile>
+    <id>release</id>
+    <build>
+      <plugins>
+        <!-- Custom Central Publishing Plugin for custom artifacts -->
+        <plugin>
+          <groupId>io.github.agnistack</groupId>
+          <artifactId>custom-central-publishing-maven-plugin</artifactId>
+          <version>0.1.1</version>
+          <inherited>false</inherited>
+          <executions>
+            <execution>
+              <id>publish-custom-artifacts</id>
+              <phase>deploy</phase>
+              <goals>
+                <goal>publish-custom</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <deploymentName>my-project-custom-artifacts</deploymentName>
+            <publishingServerId>central</publishingServerId>
+            <bomProjectsDirectory>${project.build.directory}/classes</bomProjectsDirectory>
+            <bomProjects>
+              <bomProject>my-project-bom</bomProject>
+              <bomProject>my-project-bom-with-deps</bomProject>
+            </bomProjects>
+            <autoPublish>false</autoPublish>
+            <waitUntil>VALIDATED</waitUntil>
+            <skipGpgSign>false</skipGpgSign>
+          </configuration>
+        </plugin>
+
+        <!-- GPG Signing for all artifacts -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <version>3.2.8</version>
+          <executions>
+            <execution>
+              <id>sign-artifacts</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>sign</goal>
+              </goals>
+              <configuration>
+                <gpgArguments>
+                  <argument>--batch</argument>
+                  <arg>--pinentry-mode</arg>
+                  <arg>loopback</arg>
+                </gpgArguments>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!-- Standard Maven Central Plugin (for regular modules) -->
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>0.10.0</version>
+          <extensions>true</extensions>
+          <configuration>
+            <publishingServerId>central</publishingServerId>
+            <autoPublish>false</autoPublish>
+          </configuration>
+        </plugin>
+
+        <!-- Attach sources and javadocs (for regular modules) -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.3.1</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <goals>
+                <goal>jar-no-fork</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.12.0</version>
+          <executions>
+            <execution>
+              <id>attach-javadocs</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
+  </profile>
+</profiles>
 ```
+
+### Deploy to Maven Central
+
+```bash
+mvn deploy -Prelease
+```
+
+This will:
+1. Sign all artifacts with GPG
+2. Deploy custom artifacts from `${project.build.directory}/classes` to Maven Central
+3. Deploy regular modules (JAR, sources, javadoc) to Maven Central
+4. Wait for validation before completing
 
 ## How It Works
 
@@ -234,7 +406,16 @@ Ensure your credentials in `settings.xml` are correct:
 
 Verify the `bomProjectsDirectory` path:
 ```bash
-ls -la /path/to/target/classes/kubernetes-client-bom/
+ls -la target/classes/my-project-bom/
+```
+
+Expected structure:
+```
+target/classes/
+├── my-project-bom/
+│   └── pom.xml
+└── my-project-bom-with-deps/
+    └── pom.xml
 ```
 
 ## Publishing the Plugin to Maven Central
