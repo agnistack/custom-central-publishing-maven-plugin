@@ -255,5 +255,5 @@ public class TarBundleBuilder implements BundleBuilder {
 2. **Interfaces**: Easy to mock and test
 3. **Immutability**: Model objects are immutable
 4. **Documentation**: Comprehensive JavaDoc on all public APIs
-5. **Error Messages**: Clear, actionable error message
+5. **Error Messages**: Clear, actionable error messages
 6. **Logging**: Detailed logging for troubleshooting
